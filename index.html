@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realism Style Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom scrollbar for the output area */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .hidden-important {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <div class="text-center space-y-3">
+            <div class="inline-flex items-center justify-center p-3 bg-blue-900/30 rounded-full mb-2">
+                <i data-lucide="camera" class="w-8 h-8 text-blue-400"></i>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-slate-100">
+                Realism Style Extractor
+            </h1>
+            <p class="text-slate-400 max-w-2xl mx-auto text-lg">
+                Upload a highly realistic reference image. We'll analyze its lighting, textures, and camera settings to generate a prompt that enhances your CGI/low-quality images <strong class="text-slate-200">without changing their proportions or composition.</strong>
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8">
+            
+            <!-- Left Column - Input -->
+            <div class="space-y-6">
+                <div class="bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-800">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2 text-slate-200">
+                        <i data-lucide="image" class="w-5 h-5 text-slate-400"></i>
+                        Reference Image
+                    </h2>
+                    
+                    <div id="upload-zone" class="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:bg-slate-800/50 transition-colors cursor-pointer relative overflow-hidden group">
+                        <input type="file" id="file-input" accept="image/*" class="hidden" />
+                        
+                        <!-- Image Preview Container -->
+                        <div id="image-preview-container" class="hidden-important w-full flex items-center justify-center bg-slate-950/50 min-h-[300px] md:min-h-[450px] absolute inset-0">
+                            <img id="preview-image" src="" alt="Reference" class="w-full h-full max-h-[600px] object-contain" />
+                            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span class="text-white font-medium bg-black/60 px-4 py-2 rounded-lg backdrop-blur-sm">
+                                    Change Image
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Upload Placeholder -->
+                        <div id="upload-placeholder" class="space-y-4 py-8">
+                            <div class="w-16 h-16 bg-blue-900/20 rounded-full flex items-center justify-center mx-auto">
+                                <i data-lucide="upload" class="w-8 h-8 text-blue-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-slate-300 font-medium">Click, drag & drop, or paste (Ctrl+V)</p>
+                                <p class="text-slate-500 text-sm mt-1">Upload a photo with the realistic lighting and texture you want to copy.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error Alert -->
+                    <div id="error-container" class="hidden-important mt-4 p-4 bg-red-950/30 text-red-400 rounded-lg text-sm flex items-start gap-2 border border-red-900/50">
+                        <i data-lucide="alert-circle" class="w-5 h-5 shrink-0 mt-0.5"></i>
+                        <p id="error-text"></p>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <button id="generate-btn" disabled class="w-full mt-6 py-3.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-sm bg-slate-800 text-slate-500 cursor-not-allowed">
+                        <i data-lucide="sparkles" id="btn-icon-sparkles" class="w-5 h-5"></i>
+                        <i data-lucide="loader-2" id="btn-icon-loader" class="w-5 h-5 animate-spin hidden-important"></i>
+                        <span id="btn-text">Generate Enhancement Prompt</span>
+                    </button>
+                </div>
+
+                <!-- Information Card -->
+                <div class="bg-amber-950/30 rounded-2xl p-6 border border-amber-900/50">
+                    <h3 class="font-semibold text-amber-400 flex items-center gap-2 mb-3">
+                        <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                        How to use the prompt
+                    </h3>
+                    <ul class="text-sm text-amber-200/80 space-y-2 list-disc pl-5">
+                        <li>This tool generates a <strong class="text-amber-300">multimodal text prompt</strong>.</li>
+                        <li>Go to your AI generation tool and <strong class="text-amber-300">upload BOTH images</strong> (Your Original CGI/Low-res image + This Reference Image).</li>
+                        <li>Paste this generated prompt into the chat box to strictly control the AI to preserve your original materials and proportions while upgrading the realism.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Right Column - Output -->
+            <div class="bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-800 flex flex-col h-full">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold flex items-center gap-2 text-slate-200">
+                        <i data-lucide="lightbulb" class="w-5 h-5 text-slate-400"></i>
+                        Generated Prompt
+                    </h2>
+                    
+                    <button id="copy-btn" class="hidden-important flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-700">
+                        <i data-lucide="copy" id="copy-icon" class="w-4 h-4"></i>
+                        <i data-lucide="check" id="check-icon" class="w-4 h-4 text-green-400 hidden-important"></i>
+                        <span id="copy-text">Copy</span>
+                    </button>
+                </div>
+
+                <div class="flex-grow bg-slate-950 rounded-xl border border-slate-800 relative overflow-hidden group">
+                    <!-- Empty Output State -->
+                    <div id="output-empty" class="h-full flex flex-col items-center justify-center text-slate-500 p-8 text-center space-y-4">
+                        <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center">
+                            <i data-lucide="sparkles" class="w-8 h-8 text-slate-600"></i>
+                        </div>
+                        <p>Upload an image and click generate to extract its lighting, material, and camera characteristics.</p>
+                    </div>
+                    
+                    <!-- Generated Prompt Content -->
+                    <div id="output-content" class="hidden-important p-5 h-full overflow-y-auto font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Constants and State
+        const apiKey = ""; // API key is provided by the execution environment
+        let currentBase64Data = null;
+        let currentMimeType = null;
+        let currentGeneratedPrompt = '';
+        let isGenerating = false;
+
+        // DOM Elements
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const previewImage = document.getElementById('preview-image');
+        const uploadPlaceholder = document.getElementById('upload-placeholder');
+        const errorContainer = document.getElementById('error-container');
+        const errorText = document.getElementById('error-text');
+        const generateBtn = document.getElementById('generate-btn');
+        const btnIconSparkles = document.getElementById('btn-icon-sparkles');
+        const btnIconLoader = document.getElementById('btn-icon-loader');
+        const btnText = document.getElementById('btn-text');
+        const outputEmpty = document.getElementById('output-empty');
+        const outputContent = document.getElementById('output-content');
+        const copyBtn = document.getElementById('copy-btn');
+        const copyIcon = document.getElementById('copy-icon');
+        const checkIcon = document.getElementById('check-icon');
+        const copyText = document.getElementById('copy-text');
+
+        // Helpers
+        const showError = (msg) => {
+            errorText.textContent = msg;
+            errorContainer.classList.remove('hidden-important');
+        };
+
+        const hideError = () => {
+            errorContainer.classList.add('hidden-important');
+        };
+
+        const setButtonState = (loading, hasImage) => {
+            isGenerating = loading;
+            
+            if (loading || !hasImage) {
+                generateBtn.disabled = true;
+                generateBtn.className = "w-full mt-6 py-3.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-sm bg-slate-800 text-slate-500 cursor-not-allowed";
+            } else {
+                generateBtn.disabled = false;
+                generateBtn.className = "w-full mt-6 py-3.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-sm bg-blue-600 text-white hover:bg-blue-500 hover:shadow-md active:scale-[0.98]";
+            }
+
+            if (loading) {
+                btnIconSparkles.classList.add('hidden-important');
+                btnIconLoader.classList.remove('hidden-important');
+                btnText.textContent = "Analyzing Realism Elements...";
+            } else {
+                btnIconSparkles.classList.remove('hidden-important');
+                btnIconLoader.classList.add('hidden-important');
+                btnText.textContent = "Generate Enhancement Prompt";
+            }
+        };
+
+        const clearPrompt = () => {
+            currentGeneratedPrompt = '';
+            outputContent.classList.add('hidden-important');
+            outputEmpty.classList.remove('hidden-important');
+            copyBtn.classList.add('hidden-important');
+        };
+
+        // File Processing
+        const processFile = (file) => {
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                showError('Please upload a valid image file.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const result = e.target.result;
+                previewImage.src = result;
+                
+                const base64 = result.split(',')[1];
+                currentBase64Data = base64;
+                currentMimeType = file.type;
+                
+                // Update UI
+                uploadZone.classList.remove('p-8');
+                uploadZone.classList.add('p-0');
+                uploadPlaceholder.classList.add('hidden-important');
+                imagePreviewContainer.classList.remove('hidden-important');
+                
+                hideError();
+                clearPrompt();
+                setButtonState(false, true);
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // Event Listeners for File Input
+        uploadZone.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) processFile(e.target.files[0]);
+        });
+
+        // Drag and Drop
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('bg-slate-800/50');
+        });
+
+        uploadZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('bg-slate-800/50');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('bg-slate-800/50');
+            if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]);
+        });
+
+        // Paste Handling
+        window.addEventListener('paste', (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const file = items[i].getAsFile();
+                    processFile(file);
+                    e.preventDefault();
+                    break;
+                }
+            }
+        });
+
+        // API Call
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        const fetchWithRetry = async (url, options, maxRetries = 5) => {
+            let retries = 0;
+            const baseDelay = 1000;
+
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`API Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+                    }
+                    return await response.json();
+                } catch (err) {
+                    retries++;
+                    if (retries >= maxRetries) throw err;
+                    await delay(baseDelay * Math.pow(2, retries - 1));
+                }
+            }
+        };
+
+        generateBtn.addEventListener('click', async () => {
+            if (!currentBase64Data || isGenerating) return;
+
+            setButtonState(true, true);
+            hideError();
+            clearPrompt();
+
+            const systemPrompt = `You are an elite VFX supervisor and high-end professional photography director. Your goal is to analyze the provided highly realistic reference image and extract the exact elements that make it a stunning, professional photograph (studio or natural lighting setups, high-end lens characteristics, depth of field, color grading, film stock, micro-details).
+            
+            You will output a detailed text prompt intended to be pasted into a multimodal AI image generator (where the user will upload TWO images: their Original Image to be enhanced, and this Reference Image).
+            
+            CRITICAL INSTRUCTIONS FOR THE PROMPT YOU GENERATE:
+            1. It MUST explicitly instruct the AI to use the Original Image as the strict base for geometry, pose, and composition.
+            2. It MUST explicitly instruct the AI to PRESERVE ORIGINAL MATERIALS AND COLORS. Do not change what things are made of, just upgrade the *realism* and *texture fidelity* of those exact materials.
+            3. Apply ONLY the lighting, rendering quality, and camera characteristics from the Reference Image.
+            
+            Format your output EXACTLY like this (ready to copy-paste):
+            
+            Please enhance my attached "Original Image" by applying the photorealistic qualities of my "Reference Image". 
+            
+            [CRITICAL RULES]
+            1. PRESERVE MATERIALS: Do not change the original materials, colors, or structural design of the Original Image. Maintain the exact same physical substances, just make them look real.
+            2. PRESERVE GEOMETRY: Do not change the pose, proportions, facial features, or composition.
+            3. ENHANCE REALISM: ONLY upgrade the lighting, rendering quality, and texture fidelity to match the high-end professional photography style of the Reference Image. entirely removing any "CGI" or "plastic" look.
+            
+            [SPECIFIC QUALITIES TO APPLY FROM REFERENCE]
+            - Lighting & Atmosphere: [INSERT EXTRACTED LIGHTING/SHADOW DETAILS HERE]
+            - Camera & Lens: [INSERT EXTRACTED CAMERA/LENS/DEPTH OF FIELD DETAILS HERE]
+            - Texture Fidelity: [INSERT EXTRACTED TEXTURE FIDELITY DETAILS HERE]
+            
+            [NEGATIVE CONSTRAINTS]
+            Avoid: cgi, 3d render, plastic, fake, octane render, unreal engine, altered proportions, changed pose, modified geometry, distorted features, changed materials, swapped colors, illustration, painting, artificial lighting, smooth skin, airbrushed.`;
+
+            const payload = {
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            { text: "Analyze this image and generate the realism enhancement prompt." },
+                            {
+                                inlineData: {
+                                    mimeType: currentMimeType,
+                                    data: currentBase64Data
+                                }
+                            }
+                        ]
+                    }
+                ],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                }
+            };
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const result = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (generatedText) {
+                    currentGeneratedPrompt = generatedText.trim();
+                    outputContent.textContent = currentGeneratedPrompt;
+                    outputEmpty.classList.add('hidden-important');
+                    outputContent.classList.remove('hidden-important');
+                    copyBtn.classList.remove('hidden-important');
+                } else {
+                    throw new Error("No text generated from the API.");
+                }
+            } catch (err) {
+                showError(`Failed to generate prompt: ${err.message}. Please try again.`);
+            } finally {
+                setButtonState(false, true);
+            }
+        });
+
+        // Copy to Clipboard
+        copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!currentGeneratedPrompt) return;
+            
+            const textArea = document.createElement("textarea");
+            textArea.value = currentGeneratedPrompt;
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                
+                // Show copied state
+                copyIcon.classList.add('hidden-important');
+                checkIcon.classList.remove('hidden-important');
+                copyText.textContent = "Copied!";
+                
+                // Reset after 2 seconds
+                setTimeout(() => {
+                    copyIcon.classList.remove('hidden-important');
+                    checkIcon.classList.add('hidden-important');
+                    copyText.textContent = "Copy";
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+            
+            document.body.removeChild(textArea);
+        });
+    </script>
+</body>
+</html>
